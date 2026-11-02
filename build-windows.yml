@@ -1,0 +1,45 @@
+name: Build PopMail .exe
+
+# Runs automatically when code is pushed, or on demand from the Actions tab.
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Download the code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build PopMail (web server)
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Bundle server for the desktop app
+        run: node scripts/prepare-desktop.mjs
+
+      - name: Install Electron and the packager
+        run: npm install --no-save --no-audit --no-fund electron@38 electron-builder@26
+
+      - name: Build the Windows installer
+        run: npx electron-builder --win --x64 --config electron-builder.yml --publish never
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: PopMail-Windows-Installer
+          path: dist-desktop/*.exe
+          retention-days: 90
